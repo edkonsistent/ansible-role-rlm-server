@@ -1,0 +1,7 @@
+variable_sets: # noqa: var-naming
+  base_url: "{{ nexus_url }}/Utilities"
+  subfolders:
+    name: "Reprise-RLM-Server"
+
+  versions:
+    - 'v17.0BL1'
