@@ -1,0 +1,138 @@
+- name: Set variables
+  ansible.builtin.set_fact:
+    major_ver: "{{ (effective_version.split('.')[:1] | join('.')) }}"
+    minor_ver: "{{ (effective_version.split('.')[-1:] | join('.')) }}"
+    download_url: >-
+      {{ (variable_sets.base_url ~ '/' ~ product_name ~ '/' ~ effective_version
+          ~ '/' ~ product_name ~ '-' ~ effective_version ~ '-win.exe') | trim }}
+
+- name: Display Application Details
+  ansible.builtin.debug:
+    msg: |
+      Download URL: {{ download_url }}
+      Version: {{ effective_version }}
+      Major Version: {{ major_ver }}
+      Minor Version: {{ minor_ver }}
+
+################################################################################
+# Run a pre installation check to see if the application is installed
+################################################################################
+
+- name: Check if RLM directory exists
+  ansible.windows.win_stat:
+    path: 'C:\Program Files\Reprise\RLM'
+  register: rlm_dir
+
+- name: Set installation_success to true/false
+  ansible.builtin.set_fact:
+    installation_success: "{{ rlm_dir.stat.exists | bool }}"
+
+- name: Report if {{ product_name }} {{ effective_version }} is installed
+  ansible.builtin.debug:
+    msg: "{{ product_name }} {{ effective_version }} is installed: {{ installation_success }}."
+
+################################################################################
+# Download and install the application if installation_success is False
+################################################################################
+
+- name: Create temporary directory for {{ product_name }} {{ effective_version }}
+  ansible.windows.win_tempfile:
+    state: directory
+  register: temp_dir
+  when: not installation_success
+
+- name: Display Temp dir path for {{ product_name }} {{ effective_version }}
+  ansible.builtin.debug:
+    msg: "Temp dir created at {{ temp_dir.path }}"
+  when: not installation_success
+
+- name: Fetch SHA1 for {{ product_name }} {{ effective_version }}
+  ansible.builtin.uri:
+    url: "{{ download_url }}.sha1"
+    method: GET
+    return_content: true
+    follow_redirects: all
+    url_username: "{{ repository_username }}"
+    url_password: "{{ repository_password }}"
+    force_basic_auth: false
+    status_code: [200]
+    validate_certs: true
+  register: sha1_resp
+  delegate_to: localhost
+  when: not installation_success
+
+- name: Extract SHA1 for {{ product_name }} {{ effective_version }}
+  ansible.builtin.set_fact:
+    rlm_server_sha1: "{{ sha1_resp.content | trim }}"
+  when: not installation_success
+
+- name: Display SHA1 for {{ product_name }} {{ effective_version }}
+  ansible.builtin.debug:
+    msg: "SHA1: [{{ rlm_server_sha1 }}] for {{ download_url }}"
+  when: not installation_success
+
+- name: Download {{ product_name }} "{{ temp_dir.path }}/Autodesk-Maya-{{ effective_version }}-win.zip"
+  ansible.windows.win_get_url:
+    url: "{{ download_url }}"
+    dest: "{{ temp_dir.path }}\\Autodesk-Maya-{{ effective_version }}-win.zip"
+    url_username: "{{ repository_username }}"
+    url_password: "{{ repository_password }}"
+    force_basic_auth: false
+    force: true
+    follow_redirects: all
+    checksum_algorithm: sha1
+    checksum: "{{ rlm_server_sha1 | trim }}"
+  register: rlm_server_downloaded
+  when: not installation_success
+
+- name: Locate extracted {{ product_name }} {{ effective_version }} installer (.exe)
+  ansible.windows.win_find:
+    paths:
+      - "{{ temp_dir.path }}"
+    patterns:
+      - "*Reprise-RLM-Server*.exe"
+    recurse: yes
+    file_type: file
+  register: rlm_server_found
+  when: not installation_success
+
+- name: Pick the installer path
+  ansible.builtin.set_fact:
+    installer_path: "{{ (rlm_server_found.files | map(attribute='path') | list | first) | default('') }}"
+  when: not installation_success
+
+- name: Display the {{ product_name }} {{ effective_version }} installer file
+  ansible.builtin.debug:
+    msg:
+      - "Found {{ rlm_server_found.files | length }} installer(s)"
+      - "Selected installer: {{ installer_path }}"
+  when: not installation_success
+
+- name: Install {{ product_name }} {{ effective_version }}
+  ansible.windows.win_command: >
+    "{{ installer_path }}" /S /D=C:\Program Files\Reprise\RLM
+  args:
+    chdir: "{{ temp_dir.path }}"
+  async: 2400
+  poll: 30
+  register: rlm_server_install
+  when:
+    - not installation_success
+    - installer_path | length > 0
+
+################################################################################
+# Post installation check to confirm the correct application has installed
+################################################################################
+
+- name: Check if RLM directory exists
+  ansible.windows.win_stat:
+    path: 'C:\Program Files\Reprise\RLM'
+  register: rlm_dir
+
+- name: Set installation_success to true/false
+  ansible.builtin.set_fact:
+    installation_success: "{{ rlm_dir.stat.exists | bool }}"
+
+- name: Report if {{ product_name }} {{ effective_version }} is installed
+  ansible.builtin.debug:
+    msg: "{{ product_name }} {{ effective_version }} is installed: {{ installation_success }}."
