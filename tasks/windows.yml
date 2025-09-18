@@ -18,18 +18,76 @@
 # Run a pre installation check to see if the application is installed
 ################################################################################
 
-- name: Check if RLM directory exists
-  ansible.windows.win_stat:
-    path: 'C:\Program Files\Reprise\RLM'
-  register: rlm_dir
+- name: Get installed applications (registry 32/64-bit)
+  ansible.windows.win_shell: |
+      Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*,
+                        HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+      Select-Object DisplayName, DisplayVersion |
+      Where-Object { $_.DisplayName } |
+      ConvertTo-Json -Depth 3
+  register: installed_apps_list
+
+- name: Parse installed apps JSON
+  set_fact:
+    _apps_raw: "{{ installed_apps_list.stdout | from_json }}"
+
+- name: Normalize installed apps to a list
+  set_fact:
+    installed_apps: "{{ _apps_raw if _apps_raw is sequence else [_apps_raw] }}"
+
+- name: Sort apps by name
+  set_fact:
+    installed_apps_sorted: >-
+      {{ installed_apps
+         | selectattr('DisplayName', 'defined')
+         | selectattr('DisplayName', 'truthy')
+         | sort(attribute='DisplayName') | list }}
+
+- name: Build neat list
+  set_fact:
+    apps_table: |-
+      {{ '%-70s %-20s'|format('Application','Version') }}
+      {{ '-' * 92 }}
+      {% for app in installed_apps_sorted %}
+      {{ '%-70s %-20s'|format(app.DisplayName | default(''), app.DisplayVersion | default('')) }}
+      {% endfor %}
+
+- name: Show table of apps
+  debug:
+    msg: "{{ apps_table }}"
+
+- name: Generate human friendly product name by removing dashes
+  ansible.builtin.set_fact:
+    formatted_product_name: "rlm.{{ effective_version }}-x64_w4.admin"
+
+- name: Search for matching app
+  ansible.windows.win_shell: |
+    $apps = @'
+    {{ installed_apps_list.stdout }}
+    '@ | ConvertFrom-Json
+
+    $name    = "{{ formatted_product_name }}"
+    $version = "{{ major_ver }}"
+
+    $match = $apps | Where-Object {
+      ($_.DisplayName    -like "*$name*") -and
+      ($_.DisplayVersion -like "*$version*")
+    }
+
+    if ($match) {
+      Write-Output "True"
+    } else {
+      Write-Output "False"
+    }
+  register: search_result
 
 - name: Set installation_success to true/false
-  ansible.builtin.set_fact:
-    installation_success: "{{ rlm_dir.stat.exists | bool }}"
+  set_fact:
+    installation_success: "{{ (search_result.stdout | trim) == 'True' }}"
 
-- name: Report if {{ product_name }} {{ effective_version }} is installed
+- name: Report if {{ formatted_product_name }} {{ effective_version }} is installed
   ansible.builtin.debug:
-    msg: "{{ product_name }} {{ effective_version }} is installed: {{ installation_success }}."
+    msg: "{{ formatted_product_name }} {{ effective_version }} is installed: {{ installation_success }}."
 
 ################################################################################
 # Download and install the application if installation_success is False
@@ -124,15 +182,50 @@
 # Post installation check to confirm the correct application has installed
 ################################################################################
 
-- name: Check if RLM directory exists
-  ansible.windows.win_stat:
-    path: 'C:\Program Files\Reprise\RLM'
-  register: rlm_dir
+- name: Get installed applications (registry 32/64-bit)
+  ansible.windows.win_shell: |
+      Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*,
+                        HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+      Select-Object DisplayName, DisplayVersion |
+      Where-Object { $_.DisplayName } |
+      ConvertTo-Json -Depth 3
+  register: installed_apps_list
 
-- name: Set installation_success to true/false
-  ansible.builtin.set_fact:
-    installation_success: "{{ rlm_dir.stat.exists | bool }}"
+- name: Search for matching app
+  ansible.windows.win_shell: |
+    $apps = @'
+    {{ installed_apps_list.stdout }}
+    '@ | ConvertFrom-Json
 
-- name: Report if {{ product_name }} {{ effective_version }} is installed
+    $name    = "{{ formatted_product_name }}"
+    $version = "{{ major_ver }}"
+
+    $match = $apps | Where-Object {
+      ($_.DisplayName    -like "*$name*") -and
+      ($_.DisplayVersion -like "*$version*")
+    }
+
+    if ($match) {
+      Write-Output "True"
+    } else {
+      Write-Output "False"
+    }
+  register: search_result
+
+- name: Set fact true/false
+  set_fact:
+    installation_success: "{{ (search_result.stdout | trim) == 'True' }}"
+
+- name: Remove temp dir for {{ product_name }} {{ effective_version }}
+  ansible.windows.win_file:
+    path: "{{ temp_dir.path }}"
+    state: absent
+  when:
+    - temp_dir is defined
+    - temp_dir.path is defined
+    - installation_success
+  ignore_errors: true
+
+- name: Report if {{ formatted_product_name }} {{ effective_version }} is installed
   ansible.builtin.debug:
-    msg: "{{ product_name }} {{ effective_version }} is installed: {{ installation_success }}."
+    msg: "{{ formatted_product_name }} {{ effective_version }} is installed: {{ installation_success }}."
