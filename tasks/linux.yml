@@ -1,0 +1,84 @@
+- name: Set variables
+  ansible.builtin.set_fact:
+    major_ver: "{{ (effective_version.split('.')[:1] | join('.')) }}"
+    download_url: >-
+      {{ (variable_sets.base_url ~ '/' ~ product_name ~ '/' ~ effective_version
+          ~ '/' ~ product_name ~ '-' ~ effective_version ~ '-linux.tar.gz') | trim }}
+
+- name: Display Application Details
+  ansible.builtin.debug:
+    msg: |
+      Download URL: {{ download_url }}
+      Software Name: {{ product_name }}
+      Version: {{ effective_version }}
+      Major Version: {{ major_ver }}
+
+- name: Check if {{ product_name }} {{ effective_version }} is already installed
+  ansible.builtin.stat:
+    path: /opt/reprise/rlm/
+  register: rlm_server_installed
+
+- name: Confirm if {{ product_name }} {{ effective_version }} is installed
+  ansible.builtin.set_fact:
+    installation_success: "{{ rlm_server_installed.stat.exists }}"
+
+- name: Report if {{ product_name }} {{ effective_version }} is installed
+  ansible.builtin.debug:
+    msg: "{{ product_name }} {{ effective_version }} is installed: {{ installation_success }}."
+
+- name: Create temporary directory for {{ product_name }} {{ effective_version }}
+  ansible.builtin.tempfile:
+    state: directory
+  register: temp_dir
+  when: not installation_success
+
+- name: Create {{ product_name }} {{ effective_version }} directory {{ temp_dir.path }}/{{ product_name }}{{ effective_version }}
+  ansible.builtin.file:
+    path: "{{ temp_dir.path }}/{{ product_name }}-{{ effective_version }}"
+    state: directory
+    mode: "0775"
+  become: true
+  when: not installation_success
+
+- name: Download {{ product_name }} {{ effective_version }} installer
+  ansible.builtin.get_url:
+    url: "{{ download_url }}"
+    dest: "{{ temp_dir.path }}/{{ product_name }}-{{ effective_version }}/{{ product_name }}-{{ effective_version }}-linux.tar.gz"
+    username: "{{ repository_username }}"
+    password: "{{ repository_password }}"
+    checksum: "sha1:{{ download_url | trim }}.sha1"
+    mode: '0777'
+  register: rlm_server_downloaded
+  when: not installation_success
+
+- name: Ensure target directory exists
+  ansible.builtin.file:
+    path: /opt/reprise/rlm
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when:
+    - not installation_success
+
+- name: Unarchive {{ product_name }} {{ effective_version }} installer
+  ansible.builtin.unarchive:
+    src: "{{ temp_dir.path }}/{{ product_name }}-{{ effective_version }}/{{ product_name }}-{{ effective_version }}-linux.tar.gz"
+    dest: "/opt/reprise/rlm/"
+    remote_src: true
+  when:
+    - not installation_success
+    - rlm_server_downloaded is succeeded
+
+- name: Check if {{ product_name }} {{ effective_version }} is already installed
+  ansible.builtin.stat:
+    path: /opt/reprise/rlm/
+  register: rlm_server_installed
+
+- name: Confirm if {{ product_name }} {{ effective_version }} is installed
+  ansible.builtin.set_fact:
+    installation_success: "{{ rlm_server_installed.stat.exists }}"
+
+- name: Report if {{ product_name }} {{ effective_version }} is installed
+  ansible.builtin.debug:
+    msg: "{{ product_name }} {{ effective_version }} is installed: {{ installation_success }}."
