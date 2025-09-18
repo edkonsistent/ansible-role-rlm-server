@@ -40,7 +40,7 @@ If you need to bring this into another Ansible Project you can add it to the `re
 
 ```yaml
 - name: rlm_server
-  src: https://github.com/edkonsistent/ansible-role-rlm-server.git
+  src: https://github.com/konsistent-consulting/ansible-role-rlm-server.git
   version: main
 ```
 
