@@ -29,7 +29,7 @@ Example playbook for installing:
 - name: Install Reprise RLM Server
   hosts: all
   vars:
-    selected_option: "2v17.0BL1"  # Set the required version here
+    selected_option: "v17.0BL1"  # Set the required version here
   roles:
     - rlm_server  
 ```
