@@ -71,10 +71,10 @@
     msg: "SHA1: [{{ rlm_server_sha1 }}] for {{ download_url }}"
   when: not installation_success
 
-- name: Download {{ product_name }} "{{ temp_dir.path }}/Autodesk-Maya-{{ effective_version }}-win.zip"
+- name: Download {{ product_name }} "{{ temp_dir.path }}/{{ product_name }}-{{ effective_version }}-win.exe"
   ansible.windows.win_get_url:
     url: "{{ download_url }}"
-    dest: "{{ temp_dir.path }}\\Autodesk-Maya-{{ effective_version }}-win.zip"
+    dest: "{{ temp_dir.path }}\\{{ product_name }}-{{ effective_version }}-win.exe"
     url_username: "{{ repository_username }}"
     url_password: "{{ repository_password }}"
     force_basic_auth: false
