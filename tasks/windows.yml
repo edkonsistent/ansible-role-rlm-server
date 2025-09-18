@@ -67,7 +67,7 @@
     '@ | ConvertFrom-Json
 
     $name    = "{{ formatted_product_name }}"
-    $version = "{{ major_ver }}"
+    $version = "{{ major_ver | replace('v', '') }}"
 
     $match = $apps | Where-Object {
       ($_.DisplayName    -like "*$name*") -and
@@ -198,7 +198,7 @@
     '@ | ConvertFrom-Json
 
     $name    = "{{ formatted_product_name }}"
-    $version = "{{ major_ver }}"
+    $version = "{{ major_ver | replace('v', '') }}"
 
     $match = $apps | Where-Object {
       ($_.DisplayName    -like "*$name*") -and
