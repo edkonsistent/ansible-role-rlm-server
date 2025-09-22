@@ -1,5 +1,5 @@
 variable_sets: # noqa: var-naming
-  base_url: "{{ nexus_url }}/Utilities"
+  base_url: "{{ repository_url }}/Utilities"
   subfolders:
     name: "Reprise-RLM-Server"
 

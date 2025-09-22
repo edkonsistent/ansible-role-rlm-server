@@ -1,0 +1,8 @@
+---
+name: "DaVinci Resolve"
+version: "20.2"
+version_major: "20"
+windows_url: "https://repository.konsistent.co/repository/packages/Utilities/Reprise-RLM-Server/v17.0BL1/Reprise-RLM-Server-v17.0BL1-win.exe"
+linux_url: "https://repository.konsistent.co/repository/packages/Utilities/Reprise-RLM-Server/v17.0BL1/Reprise-RLM-Server-v17.0BL1-linux.tar.gz"
+win_installer_name: "Reprise-RLM-Server-v17.0BL1-win.exe"
+win_installer_args: "/S /D=C:\\Program Files\\Reprise\\RLM"
