@@ -6,7 +6,7 @@
   ansible.builtin.import_tasks: windows.yml
   vars:
     effective_version: "{{ version }}"
-    product_name: "{{ name }}"
+    product_name: "{{ pkg_name }}"
     download_url: "{{ windows_url }}"
     major_ver: "{{ version_major }}"
     installer: "{{ win_installer_name }}"
@@ -17,7 +17,7 @@
   ansible.builtin.import_tasks: linux.yml
   vars:
     effective_version: "{{ version }}"
-    product_name: "{{ name }}"
+    product_name: "{{ pkg_name }}"
     download_url: "{{ linux_url }}"
     major_ver: "{{ version_major }}"
   when: ansible_os_family != "Windows"
