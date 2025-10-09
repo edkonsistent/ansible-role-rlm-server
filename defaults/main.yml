@@ -1,5 +1,5 @@
 ---
-name: "rlm"
+pkg_name: "rlm"
 version: "v17.0BL1"
 version_major: "17"
 windows_url: "https://repository.konsistent.co/repository/packages/Utilities/Reprise-RLM-Server/v17.0BL1/Reprise-RLM-Server-v17.0BL1-win.exe"
