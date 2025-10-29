@@ -4,7 +4,6 @@
       Download URL: {{ download_url }}
       Software Name: {{ product_name }}
       Version: {{ effective_version }}
-      Major Version: {{ major_ver }}
 
 - name: Check if {{ product_name }} {{ effective_version }} is already installed
   ansible.builtin.stat:
@@ -62,6 +61,14 @@
   when:
     - not installation_success
     - rlm_server_downloaded is succeeded
+
+- name: Remove temporary directory
+  ansible.builtin.file:
+    path: "{{ temp_dir.path }}"
+    state: absent
+  when:
+    - temp_dir is defined
+    - temp_dir.path is defined
 
 - name: Check if {{ product_name }} {{ effective_version }} is already installed
   ansible.builtin.stat:
